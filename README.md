@@ -1,5 +1,7 @@
 # ComfyUI TriFlow
 
+<img width="1391" height="663" alt="image" src="https://github.com/user-attachments/assets/320c7780-8917-4c16-9be4-30af5b862774" />
+
 Um único custom node **TriFlow Remesh**, com entrada `MESH` e saída `MESH` no
 formato nativo do ComfyUI. Gera uma nova topologia usando o modelo TriFlow,
 os VAEs SDF/NVV e reconstrução por QEM. Os scripts, configurações e fontes
