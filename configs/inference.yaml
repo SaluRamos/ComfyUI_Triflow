@@ -1,0 +1,95 @@
+trainer:
+  dataset:
+    _target_: triflow_comfy_core.datasets.mesh.MeshDataset
+    dummy: true
+  model:
+    _target_: triflow_comfy_core.models.trellis_shape_conditioned_slat_flow.ShapeConditionedSlatFlowModel
+    slat_flow_config:
+      resolution: 64
+      in_channels: 16
+      out_channels: 16
+      model_channels: 768
+      cond_channels: 768
+      num_blocks: 12
+      num_heads: 12
+      mlp_ratio: 4
+      patch_size: 2
+      num_io_res_blocks: 2
+      io_block_channels:
+      - 128
+      pe_mode: ape
+      qk_rms_norm: true
+      use_fp16: false
+    cond_face_count: true
+    cond_quad_ratio: true
+    cond_sdf_latent: true
+    sdf_feat_dim: 16
+  nvv_vae:
+    _target_: triflow_comfy_core.models.direct3ds2_sparse_vae.Direct3ds2SparseVAE
+    use_checkpoint: true
+    embed_dim: 16
+    num_head_channels_encoder: 64
+    model_channels_encoder: 512
+    num_heads_encoder: 8
+    num_blocks_encoder: 4
+    num_head_channels_decoder: 64
+    model_channels_decoder: 1024
+    num_heads_decoder: 8
+    num_blocks_decoder: 4
+    resolution: 64
+    out_channels: 4
+    use_fp16: false
+    latents_scale: 1.0
+    latents_shift: 0.0
+    in_channels: 14
+    out_active: tanh
+    use_nvv_decoder: true
+    decoder_channel_down_factors:
+    - 2
+    - 4
+    - 4
+    use_nvv_encoder: true
+    encoder_channel_down_factors:
+    - 4
+    - 8
+    - 16
+    attn_mode: swin
+  sdf_vae:
+    _target_: triflow_comfy_core.models.direct3ds2_sparse_vae.Direct3ds2SparseVAE
+    use_checkpoint: true
+    embed_dim: 16
+    num_head_channels_encoder: 64
+    model_channels_encoder: 512
+    num_heads_encoder: 8
+    num_blocks_encoder: 4
+    num_head_channels_decoder: 64
+    model_channels_decoder: 512
+    num_heads_decoder: 8
+    num_blocks_decoder: 4
+    resolution: 64
+    out_channels: 1
+    use_fp16: false
+    latents_scale: 1.0
+    latents_shift: 0.0
+    in_channels: 1
+    out_active: tanh
+    use_nvv_decoder: true
+    decoder_channel_down_factors:
+    - 4
+    - 8
+    - 16
+    use_nvv_encoder: true
+    encoder_channel_down_factors:
+    - 4
+    - 8
+    - 16
+  pre_process_data:
+    _target_: triflow_comfy_core.callbacks.latent_flow.PreProcess
+    _partial_: true
+  post_process_recon:
+    _target_: triflow_comfy_core.callbacks.latent_flow.PostProcess
+    _partial_: true
+  get_cond:
+    _target_: triflow_comfy_core.callbacks.latent_flow.GetCondition
+    _partial_: true
+    sdf_scale: 128.0

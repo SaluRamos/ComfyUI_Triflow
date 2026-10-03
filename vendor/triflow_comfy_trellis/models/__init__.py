@@ -1,0 +1,1 @@
+from .structured_latent_flow import SLatFlowModel

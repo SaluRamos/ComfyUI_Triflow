@@ -1,0 +1,3 @@
+# Bridge dependencies only; install.py manages the private inference environment.
+numpy>=1.26,<3
+trimesh>=4.11

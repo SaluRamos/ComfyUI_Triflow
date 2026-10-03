@@ -1,0 +1,4 @@
+include VERSION
+include LICENSE
+include pyfqmr_triflow/Simplify.h
+include pyfqmr_triflow/Simplify.pyx
