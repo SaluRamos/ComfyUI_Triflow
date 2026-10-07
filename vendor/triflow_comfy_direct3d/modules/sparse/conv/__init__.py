@@ -19,3 +19,8 @@ if BACKEND == 'torchsparse':
     from .conv_torchsparse import *
 elif BACKEND == 'spconv':
     from .conv_spconv import *
+
+elif BACKEND == 'torch':
+    from triflow_comfy_core.utils.torch_sparse import make_layers
+    from ..basic import SparseTensor
+    SparseConv3d, SparseInverseConv3d = make_layers(SparseTensor)

@@ -180,7 +180,8 @@ class SparseSDFDecoder(SparseTransformerBase):
                         out.append(chunk_tensor)
 
                     del mask
-                    torch.cuda.empty_cache()
+                    if x.device.type in ("cuda", "xpu"):
+                        getattr(torch, x.device.type).empty_cache()
         return out
     
     @torch.no_grad()
@@ -344,7 +345,8 @@ class SparseSDFDecoder(SparseTransformerBase):
                                 all_feats.append(chunk_result.feats[mask][within_bounds])
                     
                     if not self.training:
-                        torch.cuda.empty_cache()
+                        if x.device.type in ("cuda", "xpu"):
+                            getattr(torch, x.device.type).empty_cache()
 
                 final_coords = torch.cat(all_coords)
                 final_feats = torch.cat(all_feats)
