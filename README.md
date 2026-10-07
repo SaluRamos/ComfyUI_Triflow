@@ -147,3 +147,8 @@ MeshLib é uma dependência externa e possui termos de licença próprios.
 Foram removidos componentes de treinamento, renderização e geração de imagem
 sem uso no pipeline de inferência. Imports e targets Hydra receberam nomes
 próprios para permitir coexistência com outras extensões 3D.
+
+
+## Intel Arc / Intel Arc Pro B70 (XPU)
+
+See [INTEL_XPU.md](INTEL_XPU.md) for installation, backend selection and validation limits.

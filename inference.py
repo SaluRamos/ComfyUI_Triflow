@@ -10,8 +10,14 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.utils.checkpoint
+try:
+    from .device_support import resolve_device, configure_backends, InferenceContext
+except ImportError:
+    from device_support import resolve_device, configure_backends, InferenceContext
+
+INFERENCE_DEVICE = resolve_device()
+configure_backends(INFERENCE_DEVICE)
 import trimesh
-from accelerate import Accelerator
 from hydra import compose, initialize_config_dir
 from hydra.utils import instantiate
 from safetensors.torch import load_file
@@ -31,8 +37,8 @@ from triflow_comfy_core.utils.sparse_voxel import nested_device_transfer
 
 def load_inference_runtime(checkpoint_dir=None):
     """Load the model weights and inference components once for repeated jobs."""
-    if not torch.cuda.is_available():
-        raise RuntimeError("TriFlow requires an NVIDIA GPU and a CUDA-enabled PyTorch installation.")
+    device = INFERENCE_DEVICE
+    getattr(torch, device.type).set_device(device)
     ckpt_dir = Path(checkpoint_dir) if checkpoint_dir else PROJECT_ROOT / "checkpoints"
     for name in ("flow_model.safetensors", "sdf_vae.safetensors", "nvv_vae.safetensors"):
         if not (ckpt_dir / name).is_file():
@@ -44,24 +50,24 @@ def load_inference_runtime(checkpoint_dir=None):
 
     model = instantiate(cfg.trainer.model)
     model.load_state_dict(load_file(ckpt_dir / "flow_model.safetensors", device="cpu"))
-    model.eval().cuda()
+    model.eval().to(device)
 
     sdf_vae = instantiate(cfg.trainer.sdf_vae)
     sdf_state = load_file(ckpt_dir / "sdf_vae.safetensors", device="cpu")
-    if sys.platform == "win32":
+    if sys.platform == "win32" or device.type == "xpu":
         from triflow_comfy_core.utils.windows_weights import convert_vae_weights
         sdf_state = convert_vae_weights(sdf_state)
     sdf_vae.load_state_dict(sdf_state)
-    sdf_vae.eval().cuda()
+    sdf_vae.eval().to(device)
 
     nvv_vae = instantiate(cfg.trainer.nvv_vae)
     nvv_state = load_file(ckpt_dir / "nvv_vae.safetensors", device="cpu")
-    if sys.platform == "win32":
+    if sys.platform == "win32" or device.type == "xpu":
         nvv_state = convert_vae_weights(nvv_state)
     nvv_vae.load_state_dict(nvv_state)
-    nvv_vae.eval().cuda()
+    nvv_vae.eval().to(device)
 
-    accelerator = Accelerator(mixed_precision="fp16")
+    accelerator = InferenceContext(device)
     pre_process_data = instantiate(cfg.trainer.pre_process_data)(accelerator, nvv_vae)
     post_process_recon = instantiate(cfg.trainer.post_process_recon)(accelerator, nvv_vae)
     get_cond = instantiate(cfg.trainer.get_cond)(accelerator, sdf_vae)

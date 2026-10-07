@@ -31,15 +31,17 @@ class TriFlowRemesh:
                                     "tooltip": "Target triangle count. 0 uses the preprocessed input count; the target is approximate."}),
             "quad_ratio": ("FLOAT", {"default": 0.95, "min": 0.0, "max": 1.0, "step": 0.01,
                                     "tooltip": "Model conditioning for quad-like topology. Output remains triangular; 0 is a valid ratio."}),
+        }, "optional": {
+            "device": (["auto", "cuda", "xpu"], {"default": "auto", "tooltip": "auto follows ComfyUI; xpu uses Intel Arc with the portable sparse backend."}),
         }}
 
     RETURN_TYPES = ("MESH",)
     RETURN_NAMES = ("mesh",)
     FUNCTION = "remesh"
     CATEGORY = "3d/TriFlow"
-    DESCRIPTION = "Generates new triangle topology with TriFlow. Preserves input coordinates; UVs and textures require rebaking. NVIDIA CUDA required."
+    DESCRIPTION = "Generates new triangle topology with TriFlow. Preserves input coordinates; UVs and textures require rebaking. Supports NVIDIA CUDA and Intel XPU (portable sparse backend)."
 
-    def remesh(self, mesh, qem_threshold, face_count, quad_ratio):
+    def remesh(self, mesh, qem_threshold, face_count, quad_ratio, device="auto"):
         if (not math.isfinite(qem_threshold) or qem_threshold < 0
                 or not math.isfinite(quad_ratio) or not 0 <= quad_ratio <= 1
                 or not isinstance(face_count, int) or face_count < 0):
@@ -50,6 +52,11 @@ class TriFlowRemesh:
         import comfy.model_management as mm
         from comfy.utils import ProgressBar
 
+        if device not in ("auto", "cuda", "xpu"):
+            raise ValueError("Select auto, cuda or xpu.")
+        selected = mm.get_torch_device() if device == "auto" else torch.device(device)
+        if selected.type not in ("cuda", "xpu"):
+            raise RuntimeError("TriFlow requires a CUDA or Intel XPU GPU.")
         inputs = unpack_mesh(mesh)
         with INFERENCE_LOCK:
             mm.throw_exception_if_processing_interrupted()
@@ -57,14 +64,15 @@ class TriFlowRemesh:
             mm.soft_empty_cache()
             runtime = None
             try:
-                if os.name == "nt":
+                if os.name == "nt" or selected.type == "xpu":
                     from .isolated_runtime import remesh_isolated
                     with TemporaryDirectory(prefix="comfy-triflow-") as temporary:
                         paths = remesh_isolated(inputs, Path(temporary), checkpoint_directory(),
                             qem_threshold, face_count, quad_ratio,
-                            mm.throw_exception_if_processing_interrupted)
+                            mm.throw_exception_if_processing_interrupted, device=str(selected))
                         return (pack_mesh([trimesh.load(path, force="mesh", process=False) for path in paths]),)
                 # Namespaced local sources avoid collisions with other TRELLIS/Direct3D nodes.
+                os.environ["TRIFLOW_DEVICE"] = str(selected)
                 from .inference import load_inference_runtime, run_inference
                 runtime = load_inference_runtime(checkpoint_directory())
                 outputs = []
@@ -87,9 +95,9 @@ class TriFlowRemesh:
             except ImportError as exc:
                 raise RuntimeError(
                     f"TriFlow dependency unavailable: {exc}. See README.md and run install.py "
-                    "with ComfyUI's Python. Native CUDA dependencies must match your PyTorch/CUDA versions."
+                    "with ComfyUI's Python. Install with --device xpu for Intel; CUDA dependencies must match PyTorch for NVIDIA."
                 ) from exc
             finally:
                 runtime = None
                 gc.collect()
-                torch.cuda.empty_cache()
+                mm.soft_empty_cache()

@@ -36,11 +36,12 @@ class SparseDownsample(nn.Module):
 
         #### using fp16 could cause overflow when factor is large ######
         dtype = input.feats.dtype
+        accumulation_dtype = torch.float32 if input.device.type == "xpu" else torch.float64
         new_feats = torch.scatter_reduce(
-            torch.zeros(code.shape[0], input.feats.shape[1], device=input.feats.device, dtype=torch.float64),
+            torch.zeros(code.shape[0], input.feats.shape[1], device=input.feats.device, dtype=accumulation_dtype),
             dim=0,
             index=idx.unsqueeze(1).expand(-1, input.feats.shape[1]),
-            src=input.feats.double(),
+            src=input.feats.to(accumulation_dtype),
             reduce=self.mode,
         )
         new_feats = new_feats.to(dtype)
