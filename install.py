@@ -31,8 +31,11 @@ if __name__ == '__main__':
         runtime = root / ('.venv-xpu' if is_xpu else '.venv')
         python = runtime / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
         python_version = '3.12' if is_xpu else '3.11'
-        if not python.is_file():
-            subprocess.run([str(uv), 'venv', '--python', python_version, str(runtime)], env=env, check=True)
+        if not python.is_file() or subprocess.run(
+                [str(python), '-c', 'pass'], stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL).returncode:
+            subprocess.run([str(uv), 'venv', '--allow-existing', '--relocatable',
+                            '--python', python_version, str(runtime)], env=env, check=True)
         install = [str(uv), 'pip', 'install', '--python', str(python)]
         torch_packages = ['torch', '--index-url', 'https://download.pytorch.org/whl/xpu'] if is_xpu else ['torch==2.6.0', '--index-url', 'https://download.pytorch.org/whl/cu124']
         subprocess.run(install + torch_packages, env=env, check=True)

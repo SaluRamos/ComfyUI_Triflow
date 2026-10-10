@@ -84,11 +84,16 @@ def make_layers(SparseTensor):
             output_dtype = torch.get_autocast_dtype(feats.device.type) if torch.is_autocast_enabled(feats.device.type) else feats.dtype
             result = torch.zeros((len(feats), weights.shape[0]), device=feats.device, dtype=output_dtype)
             for offset, (dst, src) in enumerate(pairs):
-                for start in range(0, len(src), 4096):
-                    target = dst[start:start + 4096]
-                    value = feats[src[start:start + 4096]] @ weights[:, offset, :].T
-                    # Targets are unique for each offset; no atomic scatter is required.
-                    result[target] = result[target] + value.to(output_dtype)
+                # Larger chunks reduce Python/XPU launch overhead on the
+                # portable sparse path while keeping the gather workspace bounded.
+                chunk_size = 32768 if feats.device.type == "xpu" else 4096
+                for start in range(0, len(src), chunk_size):
+                    target = dst[start:start + chunk_size]
+                    value = feats[src[start:start + chunk_size]] @ weights[:, offset, :].T
+                    # XPU advanced-index read/modify/write can access-violate on
+                    # large sparse batches. index_add_ uses the backend's supported
+                    # scatter-add kernel and preserves the same accumulation.
+                    result.index_add_(0, target, value.to(output_dtype))
             if self.conv.bias is not None:
                 result = result + self.conv.bias.to(output_dtype)
             return x.replace(result)

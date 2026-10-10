@@ -143,6 +143,8 @@ class PreProcess:
             "coords": coords,
         }
 
+        # Keep the configured mixed-precision path on XPU; the portable sparse
+        # kernel below uses bounded index_add_ chunks for the native accumulation.
         with torch.no_grad(), self.accelerator.autocast():
             latent, _ = self.nvv_vae.encode(model_input, sample_posterior=False)
 

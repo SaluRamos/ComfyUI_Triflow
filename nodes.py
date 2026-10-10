@@ -3,7 +3,9 @@ import logging
 import math
 import os
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from shutil import copyfileobj
+from tempfile import NamedTemporaryFile, TemporaryDirectory
+from urllib.request import urlopen
 from threading import Lock
 
 LOGGER = logging.getLogger(__name__)
@@ -13,11 +15,34 @@ CHECKPOINT_NAMES = ("flow_model.safetensors", "sdf_vae.safetensors", "nvv_vae.sa
 
 
 def checkpoint_directory():
-    local = PROJECT_ROOT / "checkpoints"
-    if all((local / name).is_file() for name in CHECKPOINT_NAMES):
-        return local
-    import folder_paths
-    return Path(folder_paths.models_dir) / "triflow"
+    desktop_models = Path(os.environ.get("LOCALAPPDATA", "")) / "Comfy-Desktop" / "ComfyUI-Shared" / "models"
+    if os.name == "nt" and desktop_models.is_dir():
+        directory = desktop_models / "triflow"
+    else:
+        import folder_paths
+        directory = Path(folder_paths.models_dir) / "triflow"
+    directory.mkdir(parents=True, exist_ok=True)
+    for name in CHECKPOINT_NAMES:
+        target = directory / name
+        if target.is_file() and target.stat().st_size > 0:
+            continue
+        LOGGER.info("TriFlow: downloading %s to %s", name, directory)
+        url = f"https://huggingface.co/lihcxr/TriFlow/resolve/main/{name}"
+        temporary = None
+        try:
+            with urlopen(url, timeout=60) as response, NamedTemporaryFile(
+                    dir=directory, prefix=name + ".", suffix=".part", delete=False) as output:
+                temporary = Path(output.name)
+                copyfileobj(response, output)
+                expected = response.headers.get("Content-Length")
+            size = temporary.stat().st_size
+            if size == 0 or (expected is not None and size != int(expected)):
+                raise OSError(f"Incomplete TriFlow download: {name}")
+            temporary.replace(target)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+    return directory
 
 
 class TriFlowRemesh:

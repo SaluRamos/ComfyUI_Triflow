@@ -50,25 +50,18 @@ PyTorch 2.4 e CUDA 11.8.
 
 ### Pesos
 
-Três arquivos devem estar em `checkpoints/` **nesta pasta**, ou em
-`ComfyUI/models/triflow/` (os três no mesmo diretório):
+Ao executar o node, os arquivos ausentes são baixados automaticamente de
+[lihcxr/TriFlow](https://huggingface.co/lihcxr/TriFlow). Arquivos já presentes
+não são baixados novamente. No Comfy Desktop para Windows, a pasta usada é:
 
 ```text
-flow_model.safetensors
-sdf_vae.safetensors
-nvv_vae.safetensors
+C:\Users\SaluC\AppData\Local\Comfy-Desktop\ComfyUI-Shared\models\triflow
 ```
 
-Os pesos disponíveis no workspace já foram copiados para `checkpoints/`.
-Estão ignorados pelo Git (aproximadamente 1,32 GB). Em um clone novo:
-
-```bash
-python scripts/download_models.py
-# Alternativa: python scripts/download_models.py --output-dir /caminho/ComfyUI/models/triflow
-```
-
-Download: [lihcxr/TriFlow](https://huggingface.co/lihcxr/TriFlow).
-Reinicie o ComfyUI depois de instalar as dependências.
+Em outras instalações, usa `ComfyUI/models/triflow/`. Os três pesos são
+`flow_model.safetensors`, `sdf_vae.safetensors` e `nvv_vae.safetensors`
+(aproximadamente 1,32 GB). Downloads incompletos não são usados como modelos.
+Reinicie o ComfyUI depois de atualizar o node.
 
 ## Uso
 
